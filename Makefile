@@ -29,7 +29,7 @@ INCLUDES	:=
 # options for code and add-in generation
 #---------------------------------------------------------------------------------
 
-MKG3AFLAGS := -n basic:Mandelbrot -i uns:../unselected.bmp -i sel:../selected.bmp
+MKG3AFLAGS := -n basic:Control -i uns:../unselected.bmp -i sel:../selected.bmp
 
 # Optional: add -flto to CFLAGS and LDFLAGS to enable link-time optimization
 # (LTO). Doing so will usually allow the compiler to generate much better code
@@ -112,7 +112,7 @@ $(BUILD):
 
 #---------------------------------------------------------------------------------
 install:
-	rm /run/media/$(USER)/disk/$(TARGET).g3a
+	rm -f /run/media/$(USER)/disk/$(TARGET).g3a
 	cp $(TARGET).g3a /run/media/$(USER)/disk
 	udisksctl unmount --block-device /dev/sda1 && udisksctl power-off --block-device /dev/sda
 
