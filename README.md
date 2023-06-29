@@ -1,4 +1,4 @@
-#A Control App for casio FXCG graphical calculators
+# A Control App for casio FXCG graphical calculators
 
 Allows the user to enter values for first and second order and plots the resulting stepfunction as well as the Bode function
 
