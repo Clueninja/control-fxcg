@@ -31,6 +31,17 @@ static char * empty_text = "--";
 const char * text_num = "--Numerator:";
 const char * text_den = "--Denominator:";
 
+void set_default_values(){
+    first.a = 1.;
+    first.b = 1.;
+    first.c = 1.;
+
+    second.a = 1.;
+    second.b = 1.;
+    second.c = 1.;
+    second.d = 1.;
+}
+
 
 void draw_bode_axis(void){
     fillArea(0, 0, LCD_WIDTH_PX, LCD_HEIGHT_PX, COLOR_WHITE);
@@ -60,21 +71,34 @@ void draw_step_axis(void){
 }
 
 
+double second_bode_gain(double w){
+    double a=second.a, b=second.b, c=second.c, d=second.d;
+    double num = s21_norm_sqrt(sqr(a*d - a*b* sqr(w)) + sqr(a*c*w));
+    double den = sqr(d-b* sqr(w)) + c * sqr(w);
+    return num/den;
+}
+double second_bode_phase(double w){
+    double a=second.a, b=second.b, c=second.c, d=second.d;
+    return s21_atan(- (a*c*w)/(d*a - a*b* sqr(w)) );
+}
+
+
 double first_bode_gain(double w){
-    double a = .5;
-    return s21_pow(1+a*a*w*w,0.5) / (1 + a*a*w*w);
+    double a = first.a, b = first.b, c = first.c;
+    return s21_norm_sqrt(sqr(a*c) + sqr(a*b*w))/(sqr(c) + sqr(b*w));
 }
 
 double first_bode_phase(double w){
-    double a = 0.5;
-    return s21_atan(-a*w);
+    double b = first.b, c = first.c;
+    return s21_atan(-(b*w)/(c));
 }
 
 double first_step(double t){
+    //double a = first.a, b = first.b, c = first.c;
     return  (1-1/s21_exp(0.5 * t));
 }
 
-void plot_second_step(){
+void second_step(){
 
 }
 
@@ -85,66 +109,100 @@ double calc_e(double t){
 
 
 void plot_step(){
+    double start_t = 0.;
     double end_t = 10.;
-    double max_e = 2;
+
+    int pixel_step =1;
+
+    double e [LCD_WIDTH_PX];
+    double t [LCD_WIDTH_PX];
     int axis_width = LCD_WIDTH_PX-1;
     int axis_height = (LCD_HEIGHT_PX)-1;
-    double t, e;
-    int x, y, old_y;
 
 
     for(;;){
         draw_step_axis();
 
-        old_y = axis_height;       
-        for (x = 1; x<=axis_width; x++){
-            t = end_t * (double) x / (double)axis_width;
-            e = first_step(t);
-            y = axis_height-(int)(max(min(e, max_e), 0) * axis_height/max_e);
+        // fill array with graph data
+        for (int x = 1; x<=axis_width; x++){
+            t[x] = (end_t - start_t) * (double) (x*pixel_step) / (double)axis_width;
+            e[x] = first_step(t[x]);
+        }
 
-            drawLine(x-1, old_y, x, y, COLOR_RED);
+        // find max_e
+        double max_e = 1.2;
+
+        int old_y=0;
+        for(int x = 1; x<=axis_width; x++){
+            int y = axis_height-(int)(max(min(e[x], max_e), 0) * axis_height/max_e);
+
+            drawLine((x-1)*pixel_step, old_y, x*pixel_step, y, COLOR_RED);
             old_y = y;
         }
+
+
 
         int key;
         GetKey(&key);
         if (key == KEY_CTRL_EXE || key == KEY_CTRL_EXIT)
             break;
+        if (key == KEY_CTRL_RIGHT){
+            start_t += 10.;
+            end_t += 10.;
+        }
+        if (key == KEY_CTRL_LEFT){
+            start_t -= 10.;
+            end_t -= 10.;
+        }
+
     }
 
 }
 void plot_bode(){
-    double lower_w = 0.01, upper_w = 0.1, w;
+    double lower_w = 0.01, upper_w = 0.1;
+
+    double w[LCD_WIDTH_PX];
+    double g[LCD_WIDTH_PX];
+    double p[LCD_WIDTH_PX];
+
+    int pixel_step = 1;
+
     int axis_width = LCD_WIDTH_PX-2;
     int axis_height = (LCD_HEIGHT_PX/2);
 
     int y, old_y;
-    double max_g = 1., min_g = 0.;
-
-    double max_p = 0, min_p = -M_PI_2;
+    
 
     for(;;){
         draw_bode_axis();
 
-        // draw gain graph
+        // draw gain graph (fast)
         old_y = axis_height;
         for (int x = 1; x<=axis_width; x++){
             // incorrect but simple
-            w = (upper_w-lower_w) * (x / (double)axis_width) + lower_w;
-            double g = first_bode_gain(w);
-            y = axis_height-(int)(max(min(g, max_g), min_g)/(max_g-min_g) * axis_height);
-            drawLine(x-1, old_y, x, y, COLOR_GREEN);
+            w[x] = (upper_w-lower_w) * ((x*pixel_step) / (double)axis_width) + lower_w;
+            g[x] = first_bode_gain(w[x]);
+            p[x] = first_bode_phase(w[x]);
+
+        }
+        // perform analysis
+        double max_g = 1., min_g = 0.;
+        double max_p = 0, min_p = -M_PI_2;
+
+        for(int x = 1; x<axis_width; x++){
+            // draw gain
+            y = axis_height-(int)(max(min(g[x], max_g), min_g)/(max_g-min_g) * axis_height);
+            drawLine((x-1)*pixel_step, old_y, x, y, COLOR_GREEN);
             old_y = y;
+
+
         }
 
-        // draw phase graph
+        // draw phase graph (slow)
         old_y = 2*axis_height;
         for (int x = 1; x<=axis_width; x++){
-            // incorrect but simple
-            w = (upper_w-lower_w) * (x / (double)axis_width) + lower_w;
-            double p = first_bode_phase(w);
-            y = axis_height-(int)(max(min(p, max_p), min_p)/(max_p-min_p) * axis_height);
-            drawLine(x-1, old_y, x, y, COLOR_GREEN);
+            y = axis_height-(int)(max(min(p[x], max_p), min_p)/(max_p-min_p) * axis_height);
+            drawLine((x-1)*pixel_step, old_y, x, y, COLOR_GREEN);
             old_y = y;
         }
 
@@ -189,12 +247,14 @@ void text_write_buffer(char * buffer, const char * text){
         else
             EditMBStringCtrl((unsigned char*)buffer, 256, &start, &cursor, &key, 1, 2);
     }
+    Bdisp_AllClr_VRAM();
 }
 
 int main(void){
 
     int choice;
     int tab = 0;
+    set_default_values();
 
     // set cursor for writing text
 

@@ -36,6 +36,9 @@
 #define M_SQRT2 1.41421356237309504880
 #endif
 
+
+#define sqr(x) ((x)*(x))
+
 #if defined _MSC_VER
 typedef unsigned __int64 uint64;
 #else
