@@ -1,7 +1,7 @@
-#include "fxcg/display.h"
-#include "fxcg/keyboard.h"
+#include "../../../include/fxcg/display.h"
+#include "../../../include/fxcg/keyboard.h"
 //#include "../../../include/string.h"
-#include "stdlib.h"
+#include "../../../include/stdlib.h"
 #include "menu.h"
 #include "utils.h"
 #include "s21_math.h"
@@ -35,9 +35,9 @@ enum plot_mode{
 
 
 
-static char empty_buffer[256];
+//static char empty_buffer[256];
 
-static char * empty_text = "--";
+//static char * empty_text = "--";
 
 const char * text_num = "--Numerator:";
 const char * text_den = "--Denominator:";
@@ -266,7 +266,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
                 plot(x,y,COLOR_GREEN);
                 break;
             case LINE:
-                drawLine((x-1)*pixel_step, old_y2, x*pixel_step, y, COLOR_GREEN);
+                drawLine((x-1)*pixel_step, old_y, x*pixel_step, y, COLOR_GREEN);
                 break;
             }
             old_y = y;
@@ -328,7 +328,7 @@ void text_write_buffer(char * buffer, const char * text){
 }
 
 
-void str_to_array(const char * str, double * array, int array_len){
+void str_to_array(char * str, double * array, int array_len){
     char * start = str;
     char * end = str;
     for (int i = 0; i<array_len && *end != '\0'; i++){

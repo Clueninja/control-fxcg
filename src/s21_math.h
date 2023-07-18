@@ -3,10 +3,9 @@
 #ifndef __S_21_MATH_H__
 #define __S_21_MATH_H__
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+//#include "../../../include/stddef.h"
+#include "../../../include/stdint.h"
+#include "../../../include/stdlib.h"
 
 #ifndef EPS
 #define EPS 1e-10
