@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <string.h>
 
 void fillArea(unsigned x,unsigned y,unsigned w,unsigned h,unsigned short col){
     unsigned short*s=(unsigned short*)GetVRAMAddress();
@@ -53,6 +54,36 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color) {
             plot(x1, y1, color);
         }
     }
+}
+
+char * _float_to_char(float x, char *p, int str_len) {
+    
+    memset(p, ' ', str_len);
+    char *s = p + str_len; // go to end of buffer
+    *s = '\0';
+
+    int decimals;  // variable to store the decimals
+    int units;  // variable to store the units (part to left of decimal place)
+    if (x < 0) { // take care of negative numbers
+        decimals = (int)(x * -100) % 100; // make 1000 for 3 decimals etc.
+        units = (int)(-1 * x);
+    } else { // positive numbers
+        decimals = (int)(x * 100) % 100;
+        units = (int)x;
+    }
+
+    *--s = (decimals % 10) + '0';
+    decimals /= 10; // repeat for as many decimal places as you need
+    *--s = (decimals % 10) + '0';
+    *--s = '.';
+
+    do {
+        *--s = (units % 10) + '0';
+        units /= 10;
+    }while (units > 0);
+
+    if (x < 0) *--s = '-'; // unary minus sign for negative numbers
+    return s;
 }
 
 //Function was originally written by Christopher “Kerm Martian” Mitchell.
