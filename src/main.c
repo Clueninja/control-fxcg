@@ -568,7 +568,7 @@ int main(void){
                 n = sprintf(buffer, "--N Frequency: ");
                 _float_to_char(wn, buffer + n-1, 5);
                 PrintXY(1, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
-
+                
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--D Frequency: ");
                 _float_to_char(wd, buffer + n-1, 5);
@@ -598,8 +598,6 @@ int main(void){
                 n = sprintf(buffer, "--Settling Value: ");
                 _float_to_char(1/second.c, buffer + n-1, 5);
                 PrintXY(1, 7, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
-
-
 
                 if (zeta>0 && zeta<1){
                     memset(buffer, 0, 256);
