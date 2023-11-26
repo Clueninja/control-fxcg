@@ -138,10 +138,10 @@ void draw_step_axis(double start_t, double end_t, double step_t, double min_e, d
 double calculate_bode_gain(enum plot_type type, double w){
     switch (type) {
     case FIRST:
-        {
-            double a = first.a, b = first.b;
-            return s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w));
-        }
+    {
+        double a = first.a, b = first.b;
+        return s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w));
+    }
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
@@ -164,10 +164,21 @@ double calculate_bode_phase(enum plot_type type, double w){
         double a = first.a, b = first.b;
         return s21_atan(-(a*w)/(b));
     }
+    // check quadrants :) 
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
-        return s21_atan(- (b*w)/(c - a* sqr(w)) );
+        if (-b * w < 0){
+            // quadrant 4
+            if (c-a * sqr(w) > 0){
+                return  s21_atan((b*w)/(a* sqr(w) - c));
+            } 
+            if (c-a * sqr(w) <= 0){
+                return s21_atan((b*w)/(a* sqr(w) - c)) - M_PI;
+            }
+        }
+        
+        return - M_PI_2 - abs(s21_atan((b*w)/(a* sqr(w) - c)));
     }
     case BODE:
     {
@@ -177,22 +188,30 @@ double calculate_bode_phase(enum plot_type type, double w){
     return 0.;
 }
 
-double first_step(double t){
-    double a = first.a, b = first.b;
-    double g = 1/b; double tau = a/b;
-    return  g - g * s21_exp(-t/tau);
-}
-
-double second_step(double t){
-    double a=second.a, b=second.b, c=second.c;
-    double wn = s21_sqrt(c/a);
-    double zeta = b/(2.*s21_sqrt(a*c));
-    double sigma = zeta * wn;
-    double wd = wn * s21_sqrt(1-sqr(zeta));
-    return 1./c * (1. - (wn/wd) * s21_exp(-sigma * t ) * (s21_cos(wd*t) + sigma/wd * s21_sin(wd*t)));
-}
-// impossible but its here
-double bode_step(double t){
+double calculate_step_gain(enum plot_type type, double t){
+    switch(type)
+    {
+        case FIRST:
+        {
+            double a = first.a, b = first.b;
+            double g = 1./b; double tau = a/b;
+            return  g - g * s21_exp(-t/tau);
+        }
+        // TODO: Verify it is fixed above zeta > 1
+        case SECOND:
+        {
+            double a=second.a, b=second.b, c=second.c;
+            double wn = s21_sqrt(c/a);
+            double zeta = b/(2.*s21_sqrt(a*c));
+            double sigma = zeta * wn;
+            double wd = wn * s21_sqrt(1. -sqr(zeta));
+            return 1./c * (1. -  s21_exp(-sigma * t ) * (s21_cos(wd*t) + (zeta<1?(sigma/wd * s21_sin(wd*t)):0.)  ));
+        }
+        case BODE:
+        {
+            return 0.;
+        }
+    }
     return 0.;
 }
 
@@ -213,18 +232,7 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
         // fill array with graph data
         for (int x = 0; x<STEP_AXIS_WIDTH; x++){
             t[x] = (end_t - start_t) * ((double)x) / ((double)STEP_AXIS_WIDTH) + start_t;
-            switch (graph_plot) {
-            case FIRST:
-                e[x] = first_step(t[x]);
-                break;
-            case SECOND:
-                e[x] = second_step(t[x]);
-                break;
-            case BODE:
-                e[x] = bode_step(t[x]);
-                break;
-            }
-            
+            e[x] = calculate_step_gain(graph_plot, t[x]);
         }
 
         // calculate max_e
@@ -300,7 +308,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         // perform analysis
         double max_g = 1., min_g = 0.;
 
-        double max_p = M_PI /4., min_p = -M_PI;
+        double max_p = 0, min_p = -M_PI;
         /*
         for (int i = 0; i<BODE_AXIS_WIDTH; i++){
             max_g = g[i] > max_g ? g[i] : max_g;
@@ -406,7 +414,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         //draw phase
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
             //y = BODE_AXIS_END-(int)((p[x]-min_p)/(max_p-min_p) * BODE_AXIS_HEIGHT);
-            y = (int) mapd(p[x], min_p, max_p, BODE_AXIS_HEIGHT, BODE_AXIS_END);
+            y = (int) mapd(p[x], min_p, max_p, BODE_AXIS_END, BODE_AXIS_HEIGHT);
             switch (graph_mode) {
             case DOTTED:
                 plot(x + BODE_AXIS_GAP_X,y,COLOR_BLACK);
@@ -531,7 +539,7 @@ int main(void){
 
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--Steady State: ");
-                _float_to_char(1/first.b, buffer + n-1, 5);
+                _float_to_char(1./first.b, buffer + n-1, 5);
                 PrintXY(1, 3, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
 
                 memset(buffer, 0, 256);
@@ -553,7 +561,8 @@ int main(void){
                 text_write_buffer(second.edit, text_edit);
                 a[0] = &second.a; a[1] = &second.b; a[2] = &second.c;
                 str_to_array(second.edit, 3, a);
-                if (sqr(second.b) < 4.* second.a * second.c){
+                // check its not divergent
+                if (second.c/ second.a <0.){
                     warning_screen();
                 }
                 break;
@@ -575,6 +584,7 @@ int main(void){
                 double sigma = zeta * wn;
                 double wd = wn * s21_sqrt(1-sqr(zeta));
                 memset(buffer, 0, 256);
+
                 n = sprintf(buffer, "--N Frequency: ");
                 _float_to_char(wn, buffer + n-1, 5);
                 PrintXY(1, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
@@ -615,7 +625,6 @@ int main(void){
                     _float_to_char(s21_exp((-M_PI * zeta) / s21_sqrt(1-sqr(zeta))), buffer + n-1, 5);
                     PrintXY(1, 8, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
                 }
-
 
                 GetKey(NULL);
                 break;

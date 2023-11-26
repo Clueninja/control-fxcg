@@ -73,18 +73,18 @@ long double s21_old_sqrt(double x) {
 }
 
 double s21_sqrt(double S){
-  double x_0 = S/2.0, e = INFINITY;
-  while (e > 0.01){
-    e = S - sqr(x_0);
+  if (S<=0.) return 0.;
 
+  double x_0 = S/2.0, e = S, eps = 1e-6;
+  while (abs(e) > eps){
     x_0 = (S/x_0 + x_0)/2.0;
+    e = S - sqr(x_0);
   }
   return x_0;
 }
 
 long double s21_log(double num) {
-  long double x = (num - 1.) / (num + 1.), ai = 2 * x, sum = ai, d = x * x,
-              eps = 1e-25;
+  long double x = (num - 1.) / (num + 1.), ai = 2 * x, sum = ai, d = x * x, eps = 1e-6;
   for (int i = 3; abs((double)ai) > eps; i += 2) {
     ai *= d * (i - 2) / (long double)i;
     sum += ai;
@@ -156,9 +156,9 @@ double normalize_double(double num, int* exp) {
 long double old_s21_log(double x) {
   de_double ded = disassemble_double(x);
   long double double_mantiss = 1, return_val = NAN;
-  if (s21_isnan(x) == 1) {
+  if (s21_isnan(x)) {
     return_val = NAN;
-  } else if (!s21_isnan(x) && x > 0) {
+  } else if (x > 0) {
     if (!s21_isinf(x)) {
       uint64_t two_powed = 2, mask = 0x0008000000000000;
       for (int i = -64; i <= -12; ++i) {
@@ -181,9 +181,9 @@ long double old_s21_log(double x) {
 }
 
 long double s21_exp(double x) {
-  long double result = 1, temporary = 1, count = 1, abs_x = abs(x);
+  long double result = 1, temporary = 1, count = 1, abs_x = abs(x), eps = 1e-6;
   
-  while (abs(result) > EPS) {
+  while (abs(result) > eps) {
     result *= abs_x / count;
     count += 1;
     temporary += result;
@@ -252,7 +252,7 @@ long double s21_floor(double x) {
 long double s21_fmod(double x, double y) {
   long double result;
   int minus = (x < 0.);
-  if (s21_isinf(y) == 1) {
+  if (s21_isinf(y)) {
     result = x;
   } else if (s21_isnan(x) || s21_isnan(y) || s21_isinf(x) || y == 0) {
     result = NAN;
@@ -264,33 +264,31 @@ long double s21_fmod(double x, double y) {
 }
 
 long double s21_sin(double x) {
-  long double result;
-  x = (double)s21_fmod(x, 2 * M_PI);
+  long double eps = 1e-4;
+  x = (double)s21_fmod(x, 2.0 * M_PI);
   double an = x, sum = an;
-  for (double i = 3.; abs(an) > EPS || i < 50.; i += 2.) {
-    an *= -1. * x * x / (i - 1) / i;
+  for (double i = 3.; abs(an) > eps && i < 50.; i += 2.) {
+    an *= -1. * x * x / (i - 1.) / i;
     sum += an;
   }
-  result = sum;
-  return result;
+  return sum;
 }
 
 long double s21_cos(double x) {
-  long double result;
-  x = (double)s21_fmod(x, 2 * M_PI);
-  double an = 1, sum = an;
-  for (double i = 2.; abs(an) > EPS || i < 50.; i += 2.) {
-    an *= -1 * x * x / (i - 1) / i;
+  long double eps = 1e-4;
+  x = (double)s21_fmod(x, 2.0 * M_PI);
+  double an = 1., sum = an;
+  for (double i = 2.; abs(an) > eps && i < 50.; i += 2.) {
+    an *= -1. * x * x / (i - 1.) / i;
     sum += an;
   }
-  result = sum;
-  return result;
+  return sum;
 }
 long double s21_tan(double x) { return s21_sin(x) / s21_cos(x); }
 
 
 long double s21_asin(double x) {
-  long double result = 0.0;
+  long double result = 0.0, eps = 1e-6;
   if ((x > 1) || (x < -1)) {
     result = 0. / 0.;
   } else if (x == 1 || x == -1) {
@@ -298,7 +296,7 @@ long double s21_asin(double x) {
     if (x < 0) result *= -1.;
   } else {
     long double temporary_result = 0.1;
-    while (abs((double)temporary_result) > EPS) {
+    while (abs((double)temporary_result) > eps) {
       temporary_result =
           (x - s21_sin((double)result)) / s21_cos((double)result);
       result += temporary_result;
@@ -308,7 +306,7 @@ long double s21_asin(double x) {
 }
 
 long double s21_acos(double x) {
-  long double result = 1.0;
+  long double result = 1.0, eps = 1e-6;
   if ((x > 1) || (x < -1)) {
     result = 0. / 0.;
   } else if (x == 1 || x == -1) {
@@ -316,7 +314,7 @@ long double s21_acos(double x) {
     if (x < 0) result = M_PI;
   } else {
     long double temporary_result = 0.1;
-    while (abs((double)temporary_result) > EPS) {
+    while (abs((double)temporary_result) > eps) {
       temporary_result =
           (s21_cos((double)result) - x) / s21_sin((double)result);
       result += temporary_result;
@@ -327,14 +325,14 @@ long double s21_acos(double x) {
 
 long double s21_atan(double x) {
   long double result = 0.0;
-  if (s21_isnan(x) == 1) {
+  if (s21_isnan(x)) {
     result = 0. / 0.;
   } else if (x == 0) {
     result = 0.0;
   } else if (x > 0) {
-    result = s21_acos((double)(1. / (s21_sqrt(1. + sqr(x)))));
+    result = s21_acos(1. / s21_sqrt(1. + sqr(x)) );
   } else {
-    result = -(s21_acos((double)(1. / (s21_sqrt(1. + sqr(x))))));
+    result = - s21_acos(1. / s21_sqrt(1. + sqr(x)) );
   }
   return result;
 }
