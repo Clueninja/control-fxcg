@@ -171,7 +171,7 @@ double calculate_bode_phase(enum plot_type type, double w){
     }
     case BODE:
     {
-        return -90.;
+        return -M_PI_2;
     }
     }
     return 0.;
@@ -185,10 +185,10 @@ double first_step(double t){
 
 double second_step(double t){
     double a=second.a, b=second.b, c=second.c;
-    double wn = s21_norm_sqrt(c/a);
-    double zeta = b/(2.*s21_norm_sqrt(a*c));
+    double wn = s21_sqrt(c/a);
+    double zeta = b/(2.*s21_sqrt(a*c));
     double sigma = zeta * wn;
-    double wd = wn * s21_norm_sqrt(1-sqr(zeta));
+    double wd = wn * s21_sqrt(1-sqr(zeta));
     return 1./c * (1. - (wn/wd) * s21_exp(-sigma * t ) * (s21_cos(wd*t) + sigma/wd * s21_sin(wd*t)));
 }
 // impossible but its here
@@ -570,10 +570,10 @@ int main(void){
             }
             case 14:
             {
-                double wn = s21_norm_sqrt(second.c/second.a);
-                double zeta = second.b/(2.*s21_norm_sqrt(second.a*second.c));
+                double wn = s21_sqrt(second.c/second.a);
+                double zeta = second.b/(2.*s21_sqrt(second.a*second.c));
                 double sigma = zeta * wn;
-                double wd = wn * s21_norm_sqrt(1-sqr(zeta));
+                double wd = wn * s21_sqrt(1-sqr(zeta));
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--N Frequency: ");
                 _float_to_char(wn, buffer + n-1, 5);

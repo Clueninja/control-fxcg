@@ -73,7 +73,7 @@ long double s21_old_sqrt(double x) {
 }
 
 double s21_sqrt(double S){
-  double x_0 = 1.0, e = INFINITY;
+  double x_0 = S/2.0, e = INFINITY;
   while (e > 0.01){
     e = S - sqr(x_0);
 
@@ -82,7 +82,7 @@ double s21_sqrt(double S){
   return x_0;
 }
 
-long double normal_log(double num) {
+long double s21_log(double num) {
   long double x = (num - 1.) / (num + 1.), ai = 2 * x, sum = ai, d = x * x,
               eps = 1e-25;
   for (int i = 3; abs((double)ai) > eps; i += 2) {
@@ -153,7 +153,7 @@ double normalize_double(double num, int* exp) {
   return double_mantiss;
 }
 
-long double s21_log(double x) {
+long double old_s21_log(double x) {
   de_double ded = disassemble_double(x);
   long double double_mantiss = 1, return_val = NAN;
   if (s21_isnan(x) == 1) {
@@ -192,27 +192,27 @@ long double s21_exp(double x) {
       break;
     }
   }
-  temporary = (x<0) ? (temporary > DBL_MAX ? 0 : 1. / temporary) : temporary;
+  temporary = (x<0.) ? (temporary > DBL_MAX ? 0. : 1. / temporary) : temporary;
   return temporary = ((temporary > DBL_MAX) ? INFINITY : temporary);
 }
 
 long double s21_pow(double base, double ex) {
-  long double result = 1;
+  long double result = 1.;
   if (s21_isnan(base) || s21_isnan(ex)) {
     result = NAN;
   } else if (ex == -INFINITY) {
-    result = 0;
+    result = 0.;
   } else {
     if ((double)(int64_t)ex == ex) {
       // use faster algorithm if ex is an integer
-      double x = 1;
+      double x = 1.;
       if (ex > 0) {
         for (int i = 0; i < ex; ++i) x *= base;
-      } else if (ex < 0) {
+      } else if (ex < 0.) {
         for (int i = 0; i > ex; --i) x *= base;
-        x = 1 / x;
+        x = 1. / x;
       } else {
-        x = 1;
+        x = 1.;
       }
       result = x;
     } else {
@@ -228,8 +228,8 @@ long double s21_ceil(double x) {
     if (s21_isinf(x)) {
       result = x;
     } else {
-      if (x < 0 || (int64_t)x == x) x -= 1;
-      result = (double)(int64_t)(x + 1);
+      if (x < 0. || (int64_t)x == x) x -= 1.;
+      result = (double)(int64_t)(x + 1.);
     }
   }
   return result;
@@ -242,7 +242,7 @@ long double s21_floor(double x) {
       result = x;
     } else {
       long double result_buffer = (long double)(double)(int64_t)(x);
-      if ((x < 0) && (result_buffer != x)) x -= 1;
+      if ((x < 0.) && (result_buffer != x)) x -= 1.;
       result = (long double)(double)(int64_t)(x);
     }
   }
@@ -251,7 +251,7 @@ long double s21_floor(double x) {
 
 long double s21_fmod(double x, double y) {
   long double result;
-  int minus = (x < 0);
+  int minus = (x < 0.);
   if (s21_isinf(y) == 1) {
     result = x;
   } else if (s21_isnan(x) || s21_isnan(y) || s21_isinf(x) || y == 0) {
@@ -267,8 +267,8 @@ long double s21_sin(double x) {
   long double result;
   x = (double)s21_fmod(x, 2 * M_PI);
   double an = x, sum = an;
-  for (int i = 3; abs(an) > EPS || i < 50; i += 2) {
-    an *= -1 * x * x / (i - 1) / i;
+  for (double i = 3.; abs(an) > EPS || i < 50.; i += 2.) {
+    an *= -1. * x * x / (i - 1) / i;
     sum += an;
   }
   result = sum;
@@ -279,7 +279,7 @@ long double s21_cos(double x) {
   long double result;
   x = (double)s21_fmod(x, 2 * M_PI);
   double an = 1, sum = an;
-  for (int i = 2; abs(an) > EPS || i < 50; i += 2) {
+  for (double i = 2.; abs(an) > EPS || i < 50.; i += 2.) {
     an *= -1 * x * x / (i - 1) / i;
     sum += an;
   }
@@ -295,7 +295,7 @@ long double s21_asin(double x) {
     result = 0. / 0.;
   } else if (x == 1 || x == -1) {
     result = M_PI_2;
-    if (x < 0) result *= -1;
+    if (x < 0) result *= -1.;
   } else {
     long double temporary_result = 0.1;
     while (abs((double)temporary_result) > EPS) {
@@ -332,9 +332,9 @@ long double s21_atan(double x) {
   } else if (x == 0) {
     result = 0.0;
   } else if (x > 0) {
-    result = s21_acos((double)(1 / (s21_sqrt(1 + (x * x)))));
+    result = s21_acos((double)(1. / (s21_sqrt(1. + sqr(x)))));
   } else {
-    result = -(s21_acos((double)(1 / (s21_sqrt(1 + (x * x))))));
+    result = -(s21_acos((double)(1. / (s21_sqrt(1. + sqr(x))))));
   }
   return result;
 }
