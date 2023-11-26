@@ -35,7 +35,7 @@
 #define M_SQRT2 1.41421356237309504880
 #endif
 
-
+#define abs(x) ((x)<0? -(x): (x))
 #define sqr(x) ((x)*(x))
 
 #if defined _MSC_VER
@@ -62,7 +62,7 @@ double s21_inf(void);
 
 int s21_abs(int x);
 long double s21_fabs(double x);
-long double s21_sqrt(double x);
+double s21_sqrt(double x);
 long double s21_norm_sqrt(double x);
 
 long double s21_sin(double x);

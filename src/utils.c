@@ -103,4 +103,10 @@ short unsigned int heightcolor(float z, float z_min, float z_max) {
          if (frac > 0.75f) b = (b+1.f)/2.f;   //adjust the top end of the scale so that z_max is blue, not black
          return (short unsigned int)(0x0000ffff & (((int)(31.f*r) << 11) | ((int)(63.f*g) << 5) | ((int)(31.f*b))));   //put the bits together
 }
+int map(int x, int a, int b, int min, int max){
+    return min + (x-a)/(b-a) * (max-min);
+}
 
+double mapd(double x, double a, double b, double min, double max){
+    return min + (x-a)/(b-a) * (max-min);
+}

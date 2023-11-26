@@ -26,28 +26,11 @@ double s21_inf(void) {
   return *((double*)&inf);
 }
 
-int s21_abs(int x) {
-  int flag = 1;
-  if (x < 0) {
-    flag = -1;
-  }
-  x *= flag;
-  return x;
-}
-
-long double s21_fabs(double x) {
-  int flag = 1;
-  if (x < 0) {
-    flag = -1;
-  }
-  x *= flag;
-  return x;
-}
 
 long double s21_norm_sqrt(double x) {
   double S = x, a = 1, b = x;
   long double result_value = 0.0;
-  while (s21_fabs(a - b) > EPS) {
+  while (abs(a - b) > EPS) {
     a = (a + b) / 2;
     b = S / a;
   }
@@ -57,7 +40,7 @@ long double s21_norm_sqrt(double x) {
 
 long double s21_bin_sqrt(double x) {
   double a = 1, b = (x - 1) / 2;
-  while (s21_fabs(a * a - x) > SMALL_EPS) {
+  while (abs(a * a - x) > SMALL_EPS) {
     if (a * a < x) {
       a += b;
     } else {
@@ -68,7 +51,7 @@ long double s21_bin_sqrt(double x) {
   return a;
 }
 
-long double s21_sqrt(double x) {
+long double s21_old_sqrt(double x) {
   long double result = NAN;
   if (x > 0 && !s21_isnan(x)) {
     if (!s21_isinf(x)) {
@@ -89,10 +72,20 @@ long double s21_sqrt(double x) {
   return result;
 }
 
+double s21_sqrt(double S){
+  double x_0 = 1.0, e = INFINITY;
+  while (e > 0.01){
+    e = S - sqr(x_0);
+
+    x_0 = (S/x_0 + x_0)/2.0;
+  }
+  return x_0;
+}
+
 long double normal_log(double num) {
   long double x = (num - 1.) / (num + 1.), ai = 2 * x, sum = ai, d = x * x,
               eps = 1e-25;
-  for (int i = 3; s21_fabs((double)ai) > eps; i += 2) {
+  for (int i = 3; abs((double)ai) > eps; i += 2) {
     ai *= d * (i - 2) / (long double)i;
     sum += ai;
   }
@@ -188,14 +181,10 @@ long double s21_log(double x) {
 }
 
 long double s21_exp(double x) {
-  long double result = 1, temporary = 1, count = 1;
-  int flag = 0;
-  if (x < 0) {
-    x *= -1;
-    flag = 1;
-  }
-  while (s21_fabs(result) > EPS) {
-    result *= x / count;
+  long double result = 1, temporary = 1, count = 1, abs_x = abs(x);
+  
+  while (abs(result) > EPS) {
+    result *= abs_x / count;
     count += 1;
     temporary += result;
     if (temporary > DBL_MAX) {
@@ -203,8 +192,8 @@ long double s21_exp(double x) {
       break;
     }
   }
-  temporary = flag == 1 ? temporary > DBL_MAX ? 0 : 1. / temporary : temporary;
-  return temporary = temporary > DBL_MAX ? INFINITY : temporary;
+  temporary = (x<0) ? (temporary > DBL_MAX ? 0 : 1. / temporary) : temporary;
+  return temporary = ((temporary > DBL_MAX) ? INFINITY : temporary);
 }
 
 long double s21_pow(double base, double ex) {
@@ -215,6 +204,7 @@ long double s21_pow(double base, double ex) {
     result = 0;
   } else {
     if ((double)(int64_t)ex == ex) {
+      // use faster algorithm if ex is an integer
       double x = 1;
       if (ex > 0) {
         for (int i = 0; i < ex; ++i) x *= base;
@@ -277,7 +267,7 @@ long double s21_sin(double x) {
   long double result;
   x = (double)s21_fmod(x, 2 * M_PI);
   double an = x, sum = an;
-  for (int i = 3; s21_fabs(an) > EPS || i < 50; i += 2) {
+  for (int i = 3; abs(an) > EPS || i < 50; i += 2) {
     an *= -1 * x * x / (i - 1) / i;
     sum += an;
   }
@@ -289,7 +279,7 @@ long double s21_cos(double x) {
   long double result;
   x = (double)s21_fmod(x, 2 * M_PI);
   double an = 1, sum = an;
-  for (int i = 2; s21_fabs(an) > EPS || i < 50; i += 2) {
+  for (int i = 2; abs(an) > EPS || i < 50; i += 2) {
     an *= -1 * x * x / (i - 1) / i;
     sum += an;
   }
@@ -298,7 +288,6 @@ long double s21_cos(double x) {
 }
 long double s21_tan(double x) { return s21_sin(x) / s21_cos(x); }
 
-long double absolute(double x) { return x < 0 ? -x : x; }
 
 long double s21_asin(double x) {
   long double result = 0.0;
@@ -309,7 +298,7 @@ long double s21_asin(double x) {
     if (x < 0) result *= -1;
   } else {
     long double temporary_result = 0.1;
-    while (absolute((double)temporary_result) > EPS) {
+    while (abs((double)temporary_result) > EPS) {
       temporary_result =
           (x - s21_sin((double)result)) / s21_cos((double)result);
       result += temporary_result;
@@ -327,7 +316,7 @@ long double s21_acos(double x) {
     if (x < 0) result = M_PI;
   } else {
     long double temporary_result = 0.1;
-    while (absolute((double)temporary_result) > EPS) {
+    while (abs((double)temporary_result) > EPS) {
       temporary_result =
           (s21_cos((double)result) - x) / s21_sin((double)result);
       result += temporary_result;

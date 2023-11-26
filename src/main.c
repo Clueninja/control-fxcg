@@ -85,9 +85,6 @@ int scaled_value(int start, int length, double min_x, double max_x, double x){
     return (int)x;
 }
 
-
-
-
 void draw_step_axis(double start_t, double end_t, double step_t, double min_e, double max_e, double step_e){
     Bdisp_AllClr_VRAM();
 
@@ -138,23 +135,46 @@ void draw_step_axis(double start_t, double end_t, double step_t, double min_e, d
 
 }
 
-double second_bode_gain(double w){
-    double a=second.a, b=second.b, c=second.c;
-    double num = s21_sqrt(sqr(c - a* sqr(w)) + sqr(b*w));
-    double den = sqr(c-a* sqr(w)) + b * sqr(w);
-    return num/den;
+double calculate_bode_gain(enum plot_type type, double w){
+    switch (type) {
+    case FIRST:
+        {
+            double a = first.a, b = first.b;
+            return s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w));
+        }
+    case SECOND:
+    {
+        double a=second.a, b=second.b, c=second.c;
+        double num = s21_sqrt(sqr(c - a* sqr(w)) + sqr(b*w));
+        double den = sqr(c-a* sqr(w)) + b * sqr(w);
+        return num/den;
+    }
+    case BODE:
+    {
+        return 1.;
+    }
+    }
+    return 0.;
 }
-double second_bode_phase(double w){
-    double a=second.a, b=second.b, c=second.c;
-    return s21_atan(- (b*w)/(c - a* sqr(w)) );
-}
-double first_bode_gain(double w){
-    double a = first.a, b = first.b;
-    return s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w));
-}
-double first_bode_phase(double w){
-    double a = first.a, b = first.b;
-    return s21_atan(-(a*w)/(b));
+
+double calculate_bode_phase(enum plot_type type, double w){
+    switch (type) {
+    case FIRST:
+    {
+        double a = first.a, b = first.b;
+        return s21_atan(-(a*w)/(b));
+    }
+    case SECOND:
+    {
+        double a=second.a, b=second.b, c=second.c;
+        return s21_atan(- (b*w)/(c - a* sqr(w)) );
+    }
+    case BODE:
+    {
+        return -90.;
+    }
+    }
+    return 0.;
 }
 
 double first_step(double t){
@@ -269,29 +289,18 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
     old_y = 0;
     old_y2 = BODE_AXIS_END;
     for(;;){
-
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
             // incorrect but simple
             w[x] = (upper_w-lower_w) * ((double)x) / ((double)BODE_AXIS_WIDTH) + lower_w;
-            switch(graph_plot){
-            case FIRST:
-                g[x] = first_bode_gain(w[x]);
-                p[x] = first_bode_phase(w[x]);
-                break;
-            case SECOND:
-                g[x] = second_bode_gain(w[x]);
-                p[x] = second_bode_phase(w[x]);
-                break;
-            case BODE:
-                break;
-            }
-            
+
+            g[x] = calculate_bode_gain(graph_plot, w[x]);
+            p[x] = calculate_bode_phase(graph_plot, w[x]);
         }
 
         // perform analysis
         double max_g = 1., min_g = 0.;
 
-        double max_p = M_PI_2, min_p = -M_PI_2;
+        double max_p = M_PI /4., min_p = -M_PI;
         /*
         for (int i = 0; i<BODE_AXIS_WIDTH; i++){
             max_g = g[i] > max_g ? g[i] : max_g;
@@ -331,14 +340,14 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
         // draw axis lines
         for (int y=0; y<BODE_AXIS_END; y++){
-            plot(BODE_AXIS_GAP_X, y, COLOR_GREEN);
+            plot(BODE_AXIS_GAP_X, y, COLOR_BLUE);
         }
 
         for (int x = 0; x<BODE_AXIS_WIDTH; x++) {
-            plot(x+BODE_AXIS_GAP_X, 0, COLOR_GREEN);
-            plot(x+BODE_AXIS_GAP_X, BODE_AXIS_HEIGHT, COLOR_GREEN);
+            plot(x+BODE_AXIS_GAP_X, 0, COLOR_BLUE);
+            plot(x+BODE_AXIS_GAP_X, BODE_AXIS_HEIGHT, COLOR_BLUE);
             //plot(x, 3*LCD_HEIGHT_PX/4, COLOR_LIGHTSLATEGRAY);
-            plot(x+BODE_AXIS_GAP_X, BODE_AXIS_END, COLOR_GREEN);
+            plot(x+BODE_AXIS_GAP_X, BODE_AXIS_END, COLOR_BLUE);
         }
 
         int char_x,char_y;
@@ -378,29 +387,32 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
 
-
         // draw gain
+        // TODO: display in decibels
         for(int x = 0; x< BODE_AXIS_WIDTH; x++){
-            y = BODE_AXIS_HEIGHT-(int)((g[x]-min_g)/(max_g-min_g) * BODE_AXIS_HEIGHT);
+            //y = (int) BODE_AXIS_HEIGHT-(int)((g[x]-min_g)/(max_g-min_g) * BODE_AXIS_HEIGHT);
+            y = (int) mapd(g[x], min_g, max_g,BODE_AXIS_HEIGHT, 0);
+
             switch (graph_mode) {
             case (DOTTED):
-                plot(x+BODE_AXIS_GAP_X,y,COLOR_GREEN);
+                plot(x+BODE_AXIS_GAP_X,y,COLOR_RED);
                 break;
             case LINE:
-                drawLine((x-1), old_y, x, y, COLOR_GREEN);
+                drawLine((x-1), old_y, x, y, COLOR_RED);
                 break;
             }
             old_y = y;
         }
         //draw phase
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            y = BODE_AXIS_END-(int)((p[x]-min_p)/(max_p-min_p) * BODE_AXIS_HEIGHT);
+            //y = BODE_AXIS_END-(int)((p[x]-min_p)/(max_p-min_p) * BODE_AXIS_HEIGHT);
+            y = (int) mapd(p[x], min_p, max_p, BODE_AXIS_HEIGHT, BODE_AXIS_END);
             switch (graph_mode) {
             case DOTTED:
-                plot(x + BODE_AXIS_GAP_X,y,COLOR_GREEN);
+                plot(x + BODE_AXIS_GAP_X,y,COLOR_BLACK);
                 break;
             case LINE:
-                drawLine((x-1), old_y2, x, y, COLOR_GREEN);
+                drawLine((x-1), old_y2, x, y, COLOR_BLACK);
                 break;
             }
             old_y2 = y;
@@ -420,8 +432,6 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
             upper_w = upper_w / 10;
             step_w = step_w/10;
         }
-        
-
     }
 }
 
@@ -497,7 +507,7 @@ int main(void){
                 text_write_buffer(first.edit, text_edit);
                 a[0] = &first.a; a[1] = &first.b;
                 str_to_array(first.edit, 2, a);
-                if (first.b/first.a < 0){
+                if (first.b/first.a < 0.){
                    warning_screen();
                 }
                 break;
@@ -543,7 +553,7 @@ int main(void){
                 text_write_buffer(second.edit, text_edit);
                 a[0] = &second.a; a[1] = &second.b; a[2] = &second.c;
                 str_to_array(second.edit, 3, a);
-                if (sqr(second.b) < 4* second.a * second.c){
+                if (sqr(second.b) < 4.* second.a * second.c){
                     warning_screen();
                 }
                 break;
