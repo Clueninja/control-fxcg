@@ -108,5 +108,6 @@ int map(int x, int a, int b, int min, int max){
 }
 
 double mapd(double x, double a, double b, double min, double max){
+    x = max(min(x,b), a);
     return min + (x-a)/(b-a) * (max-min);
 }

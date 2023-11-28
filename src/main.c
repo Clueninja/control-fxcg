@@ -7,6 +7,7 @@
 #include "menu.h"
 #include "utils.h"
 #include "s21_math.h"
+#include "s21_complex.h"
 
 
 #define MINI_WIDTH 7
@@ -47,7 +48,7 @@ static struct {char edit[256]; double a,b;} first;
 static struct {char edit[256]; double a,b,c;} second;
 
 // bode plot (a0 )
-static struct {char edit[256]; double transform[256];} bode;
+static struct {char edit_poles[256]; double transform[256];} bode;
 
 enum plot_type{
     FIRST, SECOND, BODE
@@ -140,18 +141,29 @@ double calculate_bode_gain(enum plot_type type, double w){
     case FIRST:
     {
         double a = first.a, b = first.b;
-        return s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w));
+        return 0.5 * 20. *s21_log(s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w)));
     }
+    // TODO: Fix bug with underdamped systems
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
         double num = s21_sqrt(sqr(c - a* sqr(w)) + sqr(b*w));
         double den = sqr(c-a* sqr(w)) + b * sqr(w);
-        return num/den;
+        return 20. * s21_log(num/den);
     }
     case BODE:
     {
-        return 1.;
+        complex_t poles[10] = {};
+        int n;
+        for (n =0; n<10; n++){
+            poles[n].r = bode.transform[n];
+            poles[n].i = w;  
+        }
+        double product = 1.;
+        for (int i = 0; i<n; i++){
+            product *= cmag(poles[i]);
+        }
+        return 20. * s21_log(1./product);
     }
     }
     return 0.;
@@ -177,12 +189,21 @@ double calculate_bode_phase(enum plot_type type, double w){
                 return s21_atan((b*w)/(a* sqr(w) - c)) - M_PI;
             }
         }
-        
         return - M_PI_2 - abs(s21_atan((b*w)/(a* sqr(w) - c)));
     }
     case BODE:
     {
-        return -M_PI_2;
+        complex_t poles[10] = {};
+        int n;
+        for (int n =0; n<10; n++){
+            poles[n].r = bode.transform[n];
+            poles[n].i = w;
+        }
+        double sum = 0.;
+        for (int i = 0; i<n; i++){
+            sum += cphase(poles[i]);
+        }
+        return -sum;
     }
     }
     return 0.;
@@ -306,7 +327,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
 
         // perform analysis
-        double max_g = 1., min_g = 0.;
+        double max_g = 0., min_g = -10.;
 
         double max_p = 0, min_p = -M_PI;
         /*
@@ -329,7 +350,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
 
         // draw gain grid lines
-        double step_g = 0.2;
+        double step_g = 1.;
         for (double grid_g = min_g ; grid_g<max_g; grid_g += step_g){
             int scaled_y = BODE_AXIS_HEIGHT - scaled_value(0, BODE_AXIS_HEIGHT, min_g , max_g, grid_g);
             for (int x = 0; x<BODE_AXIS_WIDTH; x++){
@@ -469,11 +490,11 @@ void text_write_buffer(char * buffer, const char * text){
 }
 
 // maybe not the best solution but it works and seems safe...ish
-void str_to_array(char * str, int array_len, double * array[]){
+void str_to_array(char * str, int array_len, double array[]){
     char * start = str;
     char * end = str;
     for (int i = 0; i<array_len && *end != '\0'; i++){
-        *array[i] = strtod(start, &end);
+        array[i] = strtod(start, &end);
         // Hacky solution to remove a single whitespace or comma thats seperating numbers
         start = end + 1;
     }
@@ -497,7 +518,6 @@ int main(void){
     int choice;
     int tab = 0;
     set_default_values();
-    double * a[3];
     char buffer[256] = {}; int n;
 
     // set cursor for writing text
@@ -513,8 +533,7 @@ int main(void){
             case 1:
             {
                 text_write_buffer(first.edit, text_edit);
-                a[0] = &first.a; a[1] = &first.b;
-                str_to_array(first.edit, 2, a);
+                str_to_array(first.edit, 2, &first.a);
                 if (first.b/first.a < 0.){
                    warning_screen();
                 }
@@ -559,8 +578,7 @@ int main(void){
             case 11:
             {
                 text_write_buffer(second.edit, text_edit);
-                a[0] = &second.a; a[1] = &second.b; a[2] = &second.c;
-                str_to_array(second.edit, 3, a);
+                str_to_array(second.edit, 3, &second.a);
                 // check its not divergent
                 if (second.c/ second.a <0.){
                     warning_screen();
@@ -632,10 +650,9 @@ int main(void){
 
             case 21:
             {
-                text_write_buffer(bode.edit, text_edit);
+                text_write_buffer(bode.edit_poles, "--Poles");
                 // Bug here
-                a[0] = bode.transform;
-                str_to_array(bode.edit, 3, a);
+                str_to_array(bode.edit_poles, 256, bode.transform);
                 break;
             }
             case 22:

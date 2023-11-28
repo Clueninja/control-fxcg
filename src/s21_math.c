@@ -84,9 +84,9 @@ double s21_sqrt(double S){
 }
 
 long double s21_log(double num) {
-  long double x = (num - 1.) / (num + 1.), ai = 2 * x, sum = ai, d = x * x, eps = 1e-6;
+  long double x = (num - 1.) / (num + 1.), ai = 2. * x, sum = ai, d = x * x, eps = 1e-6;
   for (int i = 3; abs((double)ai) > eps; i += 2) {
-    ai *= d * (i - 2) / (long double)i;
+    ai *= d * (i - 2.) / (long double)i;
     sum += ai;
   }
   return sum;
