@@ -31,7 +31,7 @@
 // might split bode into gain and phase
 static struct menu_tab Tab0 = {"First", 4, {{1, "Edit"}, {2, "Step Response"}, {3, "Bode Plot"},{4, "Characteristics"}}};
 static struct menu_tab Tab1 = {"Second", 4, {{11, "Edit"}, {12, "Step Response"}, {13, "Bode Plot"}, {14, "Characteristics"}}};
-static struct menu_tab Tab2 = {"Bode", 2, {{21, "Edit"}, {22, "Bode Plot"}, {23, "Characteristics"}}};
+static struct menu_tab Tab2 = {"Bode", 3, {{21, "Edit"}, {22, "Bode Plot"}, {23, "Characteristics"}}};
 
 static struct menu_page Page0 = {"OPT", KEY_CTRL_OPTN, 3, {&Tab0, &Tab1, &Tab2}};
 
@@ -141,7 +141,7 @@ double calculate_bode_gain(enum plot_type type, double w){
     case FIRST:
     {
         double a = first.a, b = first.b;
-        return 0.5 * 20. *s21_log(s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w)));
+        return 20. *s21_log(s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w)));
     }
     // TODO: Fix bug with underdamped systems
     case SECOND:
@@ -379,27 +379,27 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
 
         int char_x,char_y;
-        char buffer[6] = {};
+        char buffer[7] = {};
 
         // display gain values
         memset(buffer, 0, 6);
-        _float_to_char(max_g, buffer, 5);
+        _float_to_char(max_g, buffer, 6);
         char_x=0, char_y=0 ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
         memset(buffer, 0, 6);
-        _float_to_char(min_g, buffer, 5);
+        _float_to_char(min_g, buffer, 6);
         char_x=0, char_y= BODE_AXIS_HEIGHT-24-MINI_HEIGHT ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
         
         // display phase values
         memset(buffer, 0, 6);
-        _float_to_char(max_p, buffer, 5);
+        _float_to_char(max_p, buffer, 6);
         char_x=0, char_y= BODE_AXIS_HEIGHT-24 ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
         memset(buffer, 0, 6);
-        _float_to_char(min_p, buffer, 5);
+        _float_to_char(min_p, buffer, 6);
         char_x=0, char_y= BODE_AXIS_END - MINI_HEIGHT -24;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
@@ -600,8 +600,8 @@ int main(void){
                 double zeta = second.b/(2.*s21_sqrt(second.a*second.c));
                 double sigma = zeta * wn;
                 double wd = wn * s21_sqrt(1-sqr(zeta));
-                memset(buffer, 0, 256);
 
+                memset(buffer, 0, 256);
                 n = sprintf(buffer, "--N Frequency: ");
                 _float_to_char(wn, buffer + n-1, 5);
                 PrintXY(1, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
@@ -650,7 +650,7 @@ int main(void){
             case 21:
             {
                 text_write_buffer(bode.edit_poles, "--Poles");
-                str_to_array(bode.edit_poles, 256, bode.transform);
+                str_to_array(bode.edit_poles, 256, &bode.transform[0]);
                 break;
             }
             case 22:
@@ -662,14 +662,16 @@ int main(void){
             {
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--Poles:");
-                PrintXY(1, 2, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+                PrintXY(1, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
 
                 int n_poles =0;
-                for (n_poles = 0; bode.transform[n_poles] !=0 && n_poles <6; n_poles++){
+                for (n_poles = 0; n_poles <7; n_poles++){
                      memset(buffer, 0, 256);
                     _float_to_char(bode.transform[n_poles], buffer, 5);
-                    PrintXY(1, 3+ n_poles, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+                    PrintXY(1, 2+ n_poles, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
                 }
+                GetKey(NULL);
+                break;
             }
                 
             default:

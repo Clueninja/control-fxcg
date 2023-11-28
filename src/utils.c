@@ -56,6 +56,7 @@ void drawLine(int x1, int y1, int x2, int y2, unsigned short color) {
     }
 }
 
+// TODO: adapt precision flexibily
 char * _float_to_char(float x, char *p, int str_len) {
     memset(p, ' ', str_len);
     char *s = p + str_len; // go to end of buffer
