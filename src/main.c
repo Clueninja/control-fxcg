@@ -31,7 +31,7 @@
 // might split bode into gain and phase
 static struct menu_tab Tab0 = {"First", 4, {{1, "Edit"}, {2, "Step Response"}, {3, "Bode Plot"},{4, "Characteristics"}}};
 static struct menu_tab Tab1 = {"Second", 4, {{11, "Edit"}, {12, "Step Response"}, {13, "Bode Plot"}, {14, "Characteristics"}}};
-static struct menu_tab Tab2 = {"Bode", 2, {{21, "Edit"}, {22, "Bode Plot"}}};
+static struct menu_tab Tab2 = {"Bode", 2, {{21, "Edit"}, {22, "Bode Plot"}, {23, "Characteristics"}}};
 
 static struct menu_page Page0 = {"OPT", KEY_CTRL_OPTN, 3, {&Tab0, &Tab1, &Tab2}};
 
@@ -157,7 +157,7 @@ double calculate_bode_gain(enum plot_type type, double w){
         int n;
         for (n =0; n<10; n++){
             poles[n].r = bode.transform[n];
-            poles[n].i = w;  
+            poles[n].i = w;
         }
         double product = 1.;
         for (int i = 0; i<n; i++){
@@ -239,7 +239,6 @@ double calculate_step_gain(enum plot_type type, double t){
 double step_function(double t){
     return (t<0)? 0: 1;
 }
-
 
 void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
     double start_t = 0.;
@@ -651,7 +650,6 @@ int main(void){
             case 21:
             {
                 text_write_buffer(bode.edit_poles, "--Poles");
-                // Bug here
                 str_to_array(bode.edit_poles, 256, bode.transform);
                 break;
             }
@@ -659,6 +657,19 @@ int main(void){
             {
                 plot_bode(BODE, DOTTED);
                 break;
+            }
+            case 23:
+            {
+                memset(buffer, 0, 256);
+                n = sprintf(buffer, "--Poles:");
+                PrintXY(1, 2, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+
+                int n_poles =0;
+                for (n_poles = 0; bode.transform[n_poles] !=0 && n_poles <6; n_poles++){
+                     memset(buffer, 0, 256);
+                    _float_to_char(bode.transform[n_poles], buffer, 5);
+                    PrintXY(1, 3+ n_poles, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+                }
             }
                 
             default:
