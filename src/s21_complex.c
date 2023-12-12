@@ -46,5 +46,16 @@ double cmag(complex_t x){
 }
 double cphase(complex_t x){
     // TODO: Fix quadrants
-    return s21_atan(x.i/x.r);
+    if(x.r < 0.0){
+        if (x.i>0.0)
+            return M_PI/4. + s21_atan(x.i/abs(x.r));
+        else
+            return -M_PI/4. - s21_atan(abs(x.i)/abs(x.r));
+    }
+    else{
+        if(x.i>0.0)
+            return s21_atan(x.i/x.r);
+        else
+            return -s21_atan(abs(x.i)/x.r);
+    }
 }

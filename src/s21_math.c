@@ -327,9 +327,9 @@ long double s21_atan(double x) {
   long double result = 0.0;
   if (s21_isnan(x)) {
     result = 0. / 0.;
-  } else if (x == 0) {
+  } else if (x == 0.) {
     result = 0.0;
-  } else if (x > 0) {
+  } else if (x > 0.0) {
     result = s21_acos(1. / s21_sqrt(1. + sqr(x)) );
   } else {
     result = - s21_acos(1. / s21_sqrt(1. + sqr(x)) );

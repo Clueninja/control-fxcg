@@ -42,13 +42,13 @@ static struct Tmenu geometry = {1, {&Page0}};
 // could generalise here maybe useful for a library??
 
 // first order  1/(as + b)
-static struct {char edit[256]; double a,b;} first;
+static struct {unsigned char edit[256]; double a,b;} first;
 
 // second order 1/(a s^2 + b s + c)
-static struct {char edit[256]; double a,b,c;} second;
+static struct {unsigned char edit[256]; double a,b,c;} second;
 
 // bode plot (a0 )
-static struct {char edit_poles[256]; double transform[256];} bode;
+static struct {unsigned char edit_poles[256]; double poles[256];} bode;
 
 enum plot_type{
     FIRST, SECOND, BODE
@@ -75,6 +75,9 @@ void set_default_values(){
     second.a = 1.;
     second.b = 1.;
     second.c = 1.;
+
+    bode.poles[0] = -1.;
+    bode.poles[1] = -2.;
 }
 
 
@@ -136,6 +139,7 @@ void draw_step_axis(double start_t, double end_t, double step_t, double min_e, d
 
 }
 
+// Fix gain and phase for BODE Plot type
 double calculate_bode_gain(enum plot_type type, double w){
     switch (type) {
     case FIRST:
@@ -155,8 +159,8 @@ double calculate_bode_gain(enum plot_type type, double w){
     {
         complex_t poles[10] = {};
         int n;
-        for (n =0; n<10; n++){
-            poles[n].r = bode.transform[n];
+        for (n =0; bode.poles[n]!=0 && n<10; n++){
+            poles[n].r = -bode.poles[n];
             poles[n].i = w;
         }
         double product = 1.;
@@ -195,12 +199,13 @@ double calculate_bode_phase(enum plot_type type, double w){
     {
         complex_t poles[10] = {};
         int n;
-        for (int n =0; n<10; n++){
-            poles[n].r = bode.transform[n];
+        for (int n =0; bode.poles[n]!=0 && n<10; n++){
+            // 1/((s+1) * (s+2) * ...)
+            poles[n].r = -bode.poles[n];
             poles[n].i = w;
         }
         double sum = 0.;
-        for (int i = 0; i<n; i++){
+        for (int i = 0; i<=n; i++){
             sum += cphase(poles[i]);
         }
         return -sum;
@@ -236,10 +241,7 @@ double calculate_step_gain(enum plot_type type, double t){
     return 0.;
 }
 
-double step_function(double t){
-    return (t<0)? 0: 1;
-}
-
+// TODO: Validate graph is perfect
 void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
     double start_t = 0.;
     double end_t = 10.;
@@ -300,11 +302,10 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
 
 }
 
-double round_to_closest_step(double value, double step){
-    value = value + step/2.;
-    return step * (int)(value / step);
-}
+// TODO: Fix Bode plot
 void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
+    // TODO: Fix plot graph lines to logarithmic, linear atm
+    // TODO: Fix plot dots as w is not linear from one pixel to the next
     double lower_w = 0.1, upper_w = 1;
 
     double w[BODE_AXIS_WIDTH];
@@ -318,7 +319,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
     old_y2 = BODE_AXIS_END;
     for(;;){
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            // incorrect but simple
+            // this is linear!! incorrect but simple
             w[x] = (upper_w-lower_w) * ((double)x) / ((double)BODE_AXIS_WIDTH) + lower_w;
 
             g[x] = calculate_bode_gain(graph_plot, w[x]);
@@ -489,13 +490,21 @@ void text_write_buffer(char * buffer, const char * text){
 }
 
 // maybe not the best solution but it works and seems safe...ish
-void str_to_array(char * str, int array_len, double array[]){
-    char * start = str;
-    char * end = str;
-    for (int i = 0; i<array_len && *end != '\0'; i++){
-        array[i] = strtod(start, &end);
+void str_to_array(unsigned char * str, int array_len, double array[]){
+    // Endianness??
+    for(int n =0; str[n] != '\0'; n++){
+        if (str[n] == KEY_CHAR_MINUS || str[n] == KEY_CHAR_PMINUS){
+            str[n] = '-';
+            //str[n+1] = '-';
+        }
+    }
+    unsigned char * start = str;
+    unsigned char * end = str;
+    for (int i = 0; i<array_len && *start != '\0'; i++){
+        array[i] = strtod((char *)start, (char **) &end);
         // Hacky solution to remove a single whitespace or comma thats seperating numbers
-        start = end + 1;
+        while (*end == ',' || *end == ' ') end++;
+        start = end;
     }
 }
 
@@ -531,7 +540,7 @@ int main(void){
         switch(choice){
             case 1:
             {
-                text_write_buffer(first.edit, text_edit);
+                text_write_buffer((char * )first.edit, text_edit);
                 str_to_array(first.edit, 2, &first.a);
                 if (first.b/first.a < 0.){
                    warning_screen();
@@ -576,7 +585,7 @@ int main(void){
 
             case 11:
             {
-                text_write_buffer(second.edit, text_edit);
+                text_write_buffer((char *) second.edit, text_edit);
                 str_to_array(second.edit, 3, &second.a);
                 // check its not divergent
                 if (second.c/ second.a <0.){
@@ -649,8 +658,9 @@ int main(void){
 
             case 21:
             {
-                text_write_buffer(bode.edit_poles, "--Poles");
-                str_to_array(bode.edit_poles, 256, &bode.transform[0]);
+                memset(bode.poles, 0, 256 * sizeof(double));
+                text_write_buffer((char *) bode.edit_poles, "--Poles");
+                str_to_array(bode.edit_poles, 256, bode.poles);
                 break;
             }
             case 22:
@@ -662,13 +672,14 @@ int main(void){
             {
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--Poles:");
-                PrintXY(1, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+                PrintXY(5, 1, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
 
                 int n_poles =0;
-                for (n_poles = 0; n_poles <7; n_poles++){
+                for (n_poles = 0; n_poles < 7; n_poles++){
                      memset(buffer, 0, 256);
-                    _float_to_char(bode.transform[n_poles], buffer, 5);
-                    PrintXY(1, 2+ n_poles, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
+                     n = sprintf(buffer, "--");
+                    _float_to_char(bode.poles[n_poles], buffer+n-1, 6);
+                    PrintXY(1, 2+n_poles, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK);
                 }
                 GetKey(NULL);
                 break;
