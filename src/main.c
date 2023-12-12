@@ -28,6 +28,7 @@
 
 
 
+
 // might split bode into gain and phase
 static struct menu_tab Tab0 = {"First", 4, {{1, "Edit"}, {2, "Step Response"}, {3, "Bode Plot"},{4, "Characteristics"}}};
 static struct menu_tab Tab1 = {"Second", 4, {{11, "Edit"}, {12, "Step Response"}, {13, "Bode Plot"}, {14, "Characteristics"}}};
@@ -304,32 +305,32 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
 
 // TODO: Fix Bode plot
 void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
-    // TODO: Fix plot graph lines to logarithmic, linear atm
-    // TODO: Fix plot dots as w is not linear from one pixel to the next
-    double lower_w = 0.1, upper_w = 1;
+    // when the scale = 0 and pixel fraction = 0.5, w = 3ish
+    // when the scale = -1 and pixel fraction = 0.5 w = 0.3...
+    double exp = -1.0; // 0.1 ... 1
 
     double w[BODE_AXIS_WIDTH];
     double g[BODE_AXIS_WIDTH];
     double p[BODE_AXIS_WIDTH];
 
-    double step_w = 0.2;
+    // perform analysis
+    double max_g = 0., min_g = -20.;
+
+    double max_p = 0, min_p = -M_PI;
 
     int y, old_y, old_y2;
     old_y = 0;
     old_y2 = BODE_AXIS_END;
     for(;;){
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            // this is linear!! incorrect but simple
-            w[x] = (upper_w-lower_w) * ((double)x) / ((double)BODE_AXIS_WIDTH) + lower_w;
+            double dx = x;
+            
+            w[x] = s21_exp(dx/BODE_AXIS_WIDTH + exp);
 
             g[x] = calculate_bode_gain(graph_plot, w[x]);
             p[x] = calculate_bode_phase(graph_plot, w[x]);
         }
 
-        // perform analysis
-        double max_g = 0., min_g = -10.;
-
-        double max_p = 0, min_p = -M_PI;
         /*
         for (int i = 0; i<BODE_AXIS_WIDTH; i++){
             max_g = g[i] > max_g ? g[i] : max_g;
@@ -342,26 +343,27 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
        Bdisp_AllClr_VRAM();
         // draw vertical grid lines
-        for (double x = upper_w ; x>=lower_w; x -= step_w){
-            int scaled_x = scaled_value(BODE_AXIS_GAP_X, BODE_AXIS_WIDTH, lower_w , upper_w, x);
+        for (double x = 1.0 ; x<=10.0; x +=1.0){
+            int scaled_x = BODE_AXIS_WIDTH * s21_log(x);
             for (int y = 0; y<BODE_AXIS_END; y++){
                 plot(scaled_x, y, COLOR_LIGHTSLATEGRAY);
             }
         }
 
-        // draw gain grid lines
-        double step_g = 1.;
-        for (double grid_g = min_g ; grid_g<max_g; grid_g += step_g){
-            int scaled_y = BODE_AXIS_HEIGHT - scaled_value(0, BODE_AXIS_HEIGHT, min_g , max_g, grid_g);
+        // draw gain grid lines at 0dB, -3dB, -10dB and -20dB
+        double hor_lines [] = {0., -3., -10., -20.};
+        for (int i = 0; i<=3; i++){
+            int pixel_y = (int) mapd(hor_lines[i], min_g, max_g, (double) BODE_AXIS_HEIGHT, 0);
             for (int x = 0; x<BODE_AXIS_WIDTH; x++){
-                plot(x+BODE_AXIS_GAP_X, scaled_y, COLOR_LIGHTSLATEGRAY);
+                plot(x+BODE_AXIS_GAP_X, pixel_y, COLOR_LIGHTSLATEGRAY);
             }
         }
+
 
         // draw phase grid lines
         double step_p = M_PI_4/2;
         for (double grid_p = min_p ; grid_p<max_p; grid_p += step_p){
-            int scaled_y = BODE_AXIS_END - scaled_value(0, BODE_AXIS_HEIGHT, min_p , max_p, grid_p);
+            int scaled_y = mapd(grid_p, min_p, max_p, (double) BODE_AXIS_HEIGHT, (double) BODE_AXIS_END);
             for (int x = 0; x<BODE_AXIS_WIDTH; x++){
                 plot(x+BODE_AXIS_GAP_X, scaled_y, COLOR_LIGHTSLATEGRAY);
             }
@@ -384,7 +386,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
         // display gain values
         memset(buffer, 0, 6);
-        _float_to_char(max_g, buffer, 6);
+        _float_to_char(-3.0, buffer, 6);
         char_x=0, char_y=0 ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
@@ -406,12 +408,12 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
         // display omega
         memset(buffer, 0, 6);
-        _float_to_char(lower_w, buffer, 6);
+        _float_to_char(s21_exp(exp), buffer, 6);
         char_x=MINI_WIDTH*2, char_y= BODE_AXIS_END-22 ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
         memset(buffer, 0, 6);
-        _float_to_char(upper_w, buffer, 6);
+        _float_to_char(s21_exp(exp+1.0), buffer, 6);
         char_x=BODE_AXIS_WIDTH - 2*MINI_WIDTH, char_y= BODE_AXIS_END-22;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
@@ -419,9 +421,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         // draw gain
         // TODO: display in decibels
         for(int x = 0; x< BODE_AXIS_WIDTH; x++){
-            //y = (int) BODE_AXIS_HEIGHT-(int)((g[x]-min_g)/(max_g-min_g) * BODE_AXIS_HEIGHT);
-            y = (int) mapd(g[x], min_g, max_g,BODE_AXIS_HEIGHT, 0);
-
+            y = (int) mapd(g[x], min_g, max_g,(double) BODE_AXIS_HEIGHT, 0);
             switch (graph_mode) {
             case (DOTTED):
                 plot(x+BODE_AXIS_GAP_X,y,COLOR_RED);
@@ -434,8 +434,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
         //draw phase
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            //y = BODE_AXIS_END-(int)((p[x]-min_p)/(max_p-min_p) * BODE_AXIS_HEIGHT);
-            y = (int) mapd(p[x], min_p, max_p, BODE_AXIS_END, BODE_AXIS_HEIGHT);
+            y = (int) mapd(p[x], min_p, max_p, (double) BODE_AXIS_END, (double) BODE_AXIS_HEIGHT);
             switch (graph_mode) {
             case DOTTED:
                 plot(x + BODE_AXIS_GAP_X,y,COLOR_BLACK);
@@ -452,15 +451,21 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         if (key == KEY_CTRL_EXE || key == KEY_CTRL_EXIT)
             break;
         if (key == KEY_CTRL_RIGHT){
-            lower_w *= 10;
-            upper_w *= 10;
-            step_w *= 10;
+            exp++;
         }
         if (key == KEY_CTRL_LEFT){
-            lower_w = lower_w / 10;
-            upper_w = upper_w / 10;
-            step_w = step_w/10;
+            exp--;
         }
+        /*
+        if (key == KEY_CTRL_UP){
+            min_g += 20;
+            max_g += 20;
+        }
+        if (key == KEY_CTRL_DOWN){
+            min_g -= 20;
+            max_g -=20;
+        }
+        */
     }
 }
 
