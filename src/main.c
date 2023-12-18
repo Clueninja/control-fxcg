@@ -330,6 +330,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
             g[x] = calculate_bode_gain(graph_plot, w[x]);
             p[x] = calculate_bode_phase(graph_plot, w[x]);
         }
+        
 
         /*
         for (int i = 0; i<BODE_AXIS_WIDTH; i++){

@@ -74,7 +74,6 @@ long double s21_atan(double x);
 // TODO: s21_atan2(y,x)
 
 long double s21_log(double x);
-long double normal_log(double num);
 long double s21_pow(double base, double exp);
 
 de_double disassemble_double(double num);
