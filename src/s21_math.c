@@ -1,31 +1,15 @@
 // Copyright 2021 rmarchel, jjalikak, rbabara//
+// Copyright 2023 clueninja//
 
 #include "s21_math.h"
 
 int s21_isinf(double x) {
-  ieee754 i754;
-  i754.f = x;
-  return ((unsigned)(i754.u >> 32) & 0x7fffffff) == 0x7ff00000 &&
-         ((unsigned)i754.u == 0);
+  return x == INFINITY;
 }
 
 int s21_isnan(double x) {
-  ieee754 i754;
-  i754.f = x;
-  return ((unsigned)(i754.u >> 32) & 0x7fffffff) + ((unsigned)i754.u != 0) >
-         0x7ff00000;
+  return x == NAN;
 }
-
-double s21_nan(void) {
-  uint64_t nan = 0x7FFFFFFFFFFFFFFF;
-  return *((double*)&nan);
-}
-
-double s21_inf(void) {
-  uint64_t inf = 0x7FF0000000000000;
-  return *((double*)&inf);
-}
-
 
 long double s21_norm_sqrt(double x) {
   double S = x, a = 1, b = x;
@@ -51,26 +35,6 @@ long double s21_bin_sqrt(double x) {
   return a;
 }
 
-long double s21_old_sqrt(double x) {
-  long double result = NAN;
-  if (x > 0 && !s21_isnan(x)) {
-    if (!s21_isinf(x)) {
-      int exp;
-      double norm = normalize_double(x, &exp);
-      result = shift((double)s21_bin_sqrt(norm), (exp / 2));
-      if (exp % 2 == 1) {
-        result *= M_SQRT2;
-      } else if (exp % 2 == -1) {
-        result /= M_SQRT2;
-      }
-    } else {
-      result = x;
-    }
-  } else if (x == 0 && !s21_isnan(x)) {
-    result = 0;
-  }
-  return result;
-}
 
 double s21_sqrt(double S){
   if (S<=0.) return 0.;
@@ -83,7 +47,17 @@ double s21_sqrt(double S){
   return x_0;
 }
 
+double s21_log10(double num){
+  return s21_log(num)/M_LOG10;
+}
+double s21_exp10(double exp){
+  exp *= M_LOG10;
+  return s21_exp(exp);
+}
+
 long double s21_log(double num) {
+  if (num<0)
+    return 0;
   long double x = (num - 1.) / (num + 1.), ai = 2. * x, sum = ai, d = x * x, eps = 1e-6;
   for (int i = 3; abs((double)ai) > eps; i += 2) {
     ai *= d * (i - 2.) / (long double)i;
@@ -112,7 +86,7 @@ long double s21_pow(double base, double ex) {
   long double result = 1.;
   if (s21_isnan(base) || s21_isnan(ex)) {
     result = NAN;
-  } else if (ex == -INFINITY) {
+  } else if (ex == NEG_INFINITY) {
     result = 0.;
   } else {
     if ((double)(int64_t)ex == ex) {
@@ -163,7 +137,6 @@ long double s21_floor(double x) {
 
 long double s21_fmod(double x, double y) {
   long double result;
-  int minus = (x < 0.);
   if (s21_isinf(y)) {
     result = x;
   } else if (s21_isnan(x) || s21_isnan(y) || s21_isinf(x) || y == 0) {

@@ -114,7 +114,7 @@ $(BUILD):
 install:
 	rm -f /run/media/$(USER)/disk/$(TARGET).g3a
 	cp $(TARGET).g3a /run/media/$(USER)/disk
-	udisksctl unmount --block-device /dev/sdb1 && udisksctl power-off --block-device /dev/sdb
+	udisksctl unmount --block-device $(dev) && udisksctl power-off --block-device $(dev)
 
 
 #---------------------------------------------------------------------------------

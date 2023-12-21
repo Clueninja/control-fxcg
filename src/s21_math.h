@@ -1,9 +1,9 @@
 // Copyright 2021 rmarchel, jjalikak, rbabara//
+// Copyright 2023 clueninja//
 
 #ifndef __S_21_MATH_H__
 #define __S_21_MATH_H__
 
-//#include "../../../include/stddef.h"
 #include "../../../include/stdint.h"
 #include "../../../include/stdlib.h"
 
@@ -17,10 +17,13 @@
 #undef NAN
 #endif
 #ifndef NAN
-#define NAN s21_nan()
+#define NAN (0.0/0.0)
 #endif
 #ifndef INFINITY
-#define INFINITY s21_inf()
+#define INFINITY (1.0/0.0)
+#endif
+#ifndef NEG_INFINITY
+#define NEG_INFINITY (-1.0/0.0)
 #endif
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -34,6 +37,12 @@
 #ifndef M_SQRT2
 #define M_SQRT2 1.41421356237309504880
 #endif
+#ifndef M_LOG10
+#define M_LOG10 2.3025850929940456840179914546844
+#endif
+#ifndef M_E
+#define M_E 2.718281828
+#endif
 
 #define abs(x) ((x)<0? -(x): (x))
 #define sqr(x) ((x)*(x))
@@ -44,26 +53,12 @@ typedef unsigned __int64 uint64;
 typedef uint64_t uint64;
 #endif
 
-typedef struct deconstructed_double {
-  int sign;
-  int32_t exp;
-  uint64_t mantiss;
-} de_double;
-
-typedef union {
-  uint64 u;
-  double f;
-} ieee754;
 
 int s21_isinf(double x);
 int s21_isnan(double x);
-double s21_nan(void);
-double s21_inf(void);
 
-int s21_abs(int x);
-long double s21_fabs(double x);
 double s21_sqrt(double x);
-long double s21_norm_sqrt(double x);
+long double s21_bin_sqrt(double x);
 
 long double s21_sin(double x);
 long double s21_cos(double x);
@@ -76,14 +71,12 @@ long double s21_atan(double x);
 long double s21_log(double x);
 long double s21_pow(double base, double exp);
 
-de_double disassemble_double(double num);
-double normalize_double(double num, int* exp);
-// double assemble_double(de_double ded);
-double shift(double num, int shift);
-
 long double s21_ceil(double x);
 long double s21_exp(double x);
 long double s21_floor(double x);
 long double s21_fmod(double x, double y);
+
+double s21_exp10(double x);
+double s21_log10(double x);
 
 #endif

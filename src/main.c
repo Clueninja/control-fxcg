@@ -13,20 +13,16 @@
 #define MINI_WIDTH 7
 #define MINI_HEIGHT 12
 
-#define STEP_AXIS_GAP_X MINI_WIDTH * 4
+#define STEP_AXIS_GAP_X (MINI_WIDTH * 4)
 #define STEP_AXIS_GAP_Y 25
-#define STEP_AXIS_WIDTH LCD_WIDTH_PX - STEP_AXIS_GAP_X
-#define STEP_AXIS_HEIGHT LCD_HEIGHT_PX - STEP_AXIS_GAP_Y
+#define STEP_AXIS_WIDTH (LCD_WIDTH_PX - STEP_AXIS_GAP_X)
+#define STEP_AXIS_HEIGHT (LCD_HEIGHT_PX - STEP_AXIS_GAP_Y)
 
-#define BODE_AXIS_GAP_X MINI_WIDTH * 4
+#define BODE_AXIS_GAP_X (MINI_WIDTH * 4)
 #define BODE_AXIS_GAP_Y 25
-#define BODE_AXIS_WIDTH LCD_WIDTH_PX - BODE_AXIS_GAP_X-1
-#define BODE_AXIS_HEIGHT (LCD_HEIGHT_PX - BODE_AXIS_GAP_Y)/2
-#define BODE_AXIS_END LCD_HEIGHT_PX - BODE_AXIS_GAP_Y
-
-
-
-
+#define BODE_AXIS_WIDTH (LCD_WIDTH_PX - BODE_AXIS_GAP_X-1)
+#define BODE_AXIS_HEIGHT ((LCD_HEIGHT_PX - BODE_AXIS_GAP_Y)/2)
+#define BODE_AXIS_END (LCD_HEIGHT_PX - BODE_AXIS_GAP_Y)
 
 
 // might split bode into gain and phase
@@ -146,15 +142,18 @@ double calculate_bode_gain(enum plot_type type, double w){
     case FIRST:
     {
         double a = first.a, b = first.b;
-        return 20. *s21_log(s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w)));
+        return 20. *s21_log10(s21_sqrt(sqr(b) + sqr(a*w))/(sqr(b) + sqr(a*w)));
     }
     // TODO: Fix bug with underdamped systems
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
-        double num = s21_sqrt(sqr(c - a* sqr(w)) + sqr(b*w));
-        double den = sqr(c-a* sqr(w)) + b * sqr(w);
-        return 20. * s21_log(num/den);
+        double w0 = 1.0/ s21_sqrt(a/c);
+        double zeta = b/c/2.0 * w0;
+        complex_t den;
+        den.r = (1.0 - sqr(w/w0));
+        den.i = (2.0 * zeta *w/w0);
+        return 20. * s21_log10(1.0/c/cmag(den));
     }
     case BODE:
     {
@@ -168,7 +167,7 @@ double calculate_bode_gain(enum plot_type type, double w){
         for (int i = 0; i<n; i++){
             product *= cmag(poles[i]);
         }
-        return 20. * s21_log(1./product);
+        return 20. * s21_log10(1./product);
     }
     }
     return 0.;
@@ -179,22 +178,18 @@ double calculate_bode_phase(enum plot_type type, double w){
     case FIRST:
     {
         double a = first.a, b = first.b;
-        return s21_atan(-(a*w)/(b));
+        return -s21_atan((a*w)/(b));
     }
     // check quadrants :) 
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
-        if (-b * w < 0){
-            // quadrant 4
-            if (c-a * sqr(w) > 0){
-                return  s21_atan((b*w)/(a* sqr(w) - c));
-            } 
-            if (c-a * sqr(w) <= 0){
-                return s21_atan((b*w)/(a* sqr(w) - c)) - M_PI;
-            }
-        }
-        return - M_PI_2 - abs(s21_atan((b*w)/(a* sqr(w) - c)));
+        double w0 = 1.0/ s21_sqrt(a/c);
+        double zeta = b/c/2.0 * w0;
+        complex_t den;
+        den.r = (1.0 - sqr(w/w0));
+        den.i = (2.0 * zeta *w/w0);
+        return -cphase(den);
     }
     case BODE:
     {
@@ -224,15 +219,28 @@ double calculate_step_gain(enum plot_type type, double t){
             double g = 1./b; double tau = a/b;
             return  g - g * s21_exp(-t/tau);
         }
-        // TODO: Verify it is fixed above zeta > 1
+
         case SECOND:
         {
             double a=second.a, b=second.b, c=second.c;
-            double wn = s21_sqrt(c/a);
-            double zeta = b/(2.*s21_sqrt(a*c));
-            double sigma = zeta * wn;
-            double wd = wn * s21_sqrt(1. -sqr(zeta));
-            return 1./c * (1. -  s21_exp(-sigma * t ) * (s21_cos(wd*t) + (zeta<1?(sigma/wd * s21_sin(wd*t)):0.)  ));
+            double w0 = 1.0/ s21_sqrt(a/c);
+            double zeta = b/c/2.0 * w0;
+            // zeta = 0
+            if (zeta == 0.0)
+                return 1.0/c * (1.0 - s21_cos(w0 * t));
+            
+            //small fix for zeta < 1
+            if (zeta < 0.95){
+                double temp = s21_sqrt(1.0 - sqr(zeta));
+                return 1.0/c * (1.0 - s21_exp(- zeta * w0 *t)/temp * s21_sin(temp * w0 * t + s21_atan(temp / zeta)));
+            }
+            // zeta ~= 1
+            if (zeta <= 1.)
+                return 1.0/c * (1.0 - (1 + w0*t) * s21_exp(-w0 * t));
+            // zeta > 1
+            double temp = s21_sqrt(sqr(zeta)- 1.0);
+            double atanh_temp = 1.0/2.0 * s21_log((1.0 + temp/zeta)/(1.0 - temp/zeta));
+            return 1.0/c * (1.0 - s21_exp(- zeta * w0 *t)/ temp * (s21_exp(temp*w0*t + atanh_temp) - s21_exp(-temp*w0*t - atanh_temp))/2.0 );
         }
         case BODE:
         {
@@ -309,7 +317,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
     // when the scale = -1 and pixel fraction = 0.5 w = 0.3...
     double exp = -1.0; // 0.1 ... 1
 
-    double w[BODE_AXIS_WIDTH];
+    double w;
     double g[BODE_AXIS_WIDTH];
     double p[BODE_AXIS_WIDTH];
 
@@ -323,12 +331,11 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
     old_y2 = BODE_AXIS_END;
     for(;;){
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            double dx = x;
             
-            w[x] = s21_exp(dx/BODE_AXIS_WIDTH + exp);
+            w = s21_exp10(((double) x)/((double) BODE_AXIS_WIDTH) + exp);
 
-            g[x] = calculate_bode_gain(graph_plot, w[x]);
-            p[x] = calculate_bode_phase(graph_plot, w[x]);
+            g[x] = calculate_bode_gain(graph_plot, w);
+            p[x] = calculate_bode_phase(graph_plot, w);
         }
         
 
@@ -345,7 +352,7 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
        Bdisp_AllClr_VRAM();
         // draw vertical grid lines
         for (double x = 1.0 ; x<=10.0; x +=1.0){
-            int scaled_x = BODE_AXIS_WIDTH * s21_log(x);
+            int scaled_x = (int)((double) BODE_AXIS_WIDTH * s21_log10(x) )+ BODE_AXIS_GAP_X;
             for (int y = 0; y<BODE_AXIS_END; y++){
                 plot(scaled_x, y, COLOR_LIGHTSLATEGRAY);
             }
@@ -409,12 +416,12 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
         // display omega
         memset(buffer, 0, 6);
-        _float_to_char(s21_exp(exp), buffer, 6);
+        _float_to_char(s21_exp10(exp), buffer, 6);
         char_x=MINI_WIDTH*2, char_y= BODE_AXIS_END-22 ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
         memset(buffer, 0, 6);
-        _float_to_char(s21_exp(exp+1.0), buffer, 6);
+        _float_to_char(s21_exp10(exp+1.0), buffer, 6);
         char_x=BODE_AXIS_WIDTH - 2*MINI_WIDTH, char_y= BODE_AXIS_END-22;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
@@ -493,6 +500,7 @@ void text_write_buffer(char * buffer, const char * text){
             EditMBStringCtrl((unsigned char*)buffer, 256, &start, &cursor, &key, 1, 2);
     }
     Bdisp_AllClr_VRAM();
+    Cursor_SetFlashOff();
 }
 
 // maybe not the best solution but it works and seems safe...ish
@@ -614,7 +622,7 @@ int main(void){
                 double wn = s21_sqrt(second.c/second.a);
                 double zeta = second.b/(2.*s21_sqrt(second.a*second.c));
                 double sigma = zeta * wn;
-                double wd = wn * s21_sqrt(1-sqr(zeta));
+                double wd = wn * s21_sqrt(1.0-sqr(zeta));
 
                 memset(buffer, 0, 256);
                 n = sprintf(buffer, "--N Frequency: ");
