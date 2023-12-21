@@ -211,14 +211,18 @@ long double s21_acos(double x) {
 
 long double s21_atan(double x) {
   long double result = 0.0;
-  if (s21_isnan(x)) {
+  if (s21_isnan(x))
     result = 0. / 0.;
-  } else if (x == 0.) {
+  else if (x == 0.) 
     result = 0.0;
-  } else if (x > 0.0) {
+  else if(x>100.0)
+    result =  M_PI_2;
+  else if(x<-100.0)
+    result = -M_PI_2;
+  else if (x > 0.0) 
     result = s21_acos(1. / s21_sqrt(1. + sqr(x)) );
-  } else {
+  else 
     result = - s21_acos(1. / s21_sqrt(1. + sqr(x)) );
-  }
+  
   return result;
 }

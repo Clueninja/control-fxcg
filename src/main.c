@@ -78,33 +78,24 @@ void set_default_values(){
 }
 
 
-int scaled_value(int start, int length, double min_x, double max_x, double x){
-    // map x and y between min and max
-    x = min(max(x, min_x), max_x);
-
-    x = (x - min_x)/(max_x-min_x) * length + start;
-    return (int)x;
-}
-
 void draw_step_axis(double start_t, double end_t, double step_t, double min_e, double max_e, double step_e){
     Bdisp_AllClr_VRAM();
 
     // Draw grid lines
     for (double y = 0.; y<max_e; y += step_e){
-        int scaled_y = STEP_AXIS_HEIGHT - scaled_value(0, STEP_AXIS_HEIGHT, 0 , max_e, y);
+        int scaled_y = mapd(y, 0, max_e, STEP_AXIS_HEIGHT, 0);
         for (int x = 0; x<STEP_AXIS_WIDTH; x++){
             plot(x+STEP_AXIS_GAP_X, scaled_y, COLOR_BLUE);
         }
     }
     
-
     for (double x = start_t ; x<end_t; x += step_t){
-        int scaled_x = scaled_value(STEP_AXIS_GAP_X, STEP_AXIS_WIDTH, start_t , end_t, x);
+        int scaled_x = mapd(x, start_t, end_t, 0, STEP_AXIS_WIDTH) + STEP_AXIS_GAP_X;
         for (int y = 0; y<STEP_AXIS_HEIGHT; y++){
             plot(scaled_x, y, COLOR_BLUE);
         }
     }
-
+    // draw axis
     for (int y=0; y<STEP_AXIS_HEIGHT; y++){
         plot(STEP_AXIS_GAP_X, y, COLOR_BLACK);
     }
@@ -112,7 +103,6 @@ void draw_step_axis(double start_t, double end_t, double step_t, double min_e, d
         plot(x+STEP_AXIS_GAP_X, STEP_AXIS_HEIGHT, COLOR_BLACK);
     }
     
-
     char buffer[6] = {};
     // display y axis
     _float_to_char(min_e, buffer, 4);
@@ -179,9 +169,8 @@ double calculate_bode_phase(enum plot_type type, double w){
     case FIRST:
     {
         double a = first.a, b = first.b;
-        return -s21_atan((a*w)/(b));
+        return -s21_atan((a*w)/(b))*360/2.0/M_PI;
     }
-    // check quadrants :) 
     case SECOND:
     {
         double a=second.a, b=second.b, c=second.c;
@@ -190,22 +179,22 @@ double calculate_bode_phase(enum plot_type type, double w){
         complex_t den;
         den.r = (1.0 - sqr(w/w0));
         den.i = (2.0 * zeta *w/w0);
-        return -cphase(den);
+        return -cphase(den)*360/2.0/M_PI;
     }
     case BODE:
     {
         complex_t poles[10] = {};
         int n;
-        for (int n =0; bode.poles[n]!=0 && n<10; n++){
+        for (n =0; bode.poles[n]!=0 && n<10; n++){
             // 1/((s+1) * (s+2) * ...)
             poles[n].r = -bode.poles[n];
             poles[n].i = w;
         }
         double sum = 0.;
-        for (int i = 0; i<=n; i++){
+        for (int i = 0; i<n; i++){
             sum += cphase(poles[i]);
         }
-        return -sum;
+        return -sum*360/2.0/M_PI;
     }
     }
     return 0.;
@@ -251,7 +240,6 @@ double calculate_step_gain(enum plot_type type, double t){
     return 0.;
 }
 
-// TODO: Validate graph is perfect
 void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
     double start_t = 0.;
     double end_t = 10.;
@@ -259,7 +247,6 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
     double e [STEP_AXIS_WIDTH];
     double t [STEP_AXIS_WIDTH];
     
-
     for(;;){
         // fill array with graph data
         for (int x = 0; x<STEP_AXIS_WIDTH; x++){
@@ -274,19 +261,15 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
         max_e *=1.2;
 
-
         // calculate step_e for grid lines
-
         draw_step_axis(start_t, end_t, 1., 0, max_e, 0.2);
 
-        
         int old_y=0;
         for(int x = 0; x < STEP_AXIS_WIDTH; x++){
-            int y = STEP_AXIS_HEIGHT - scaled_value(0, STEP_AXIS_HEIGHT, 0, max_e, e[x]);
+            int y = mapd(e[x], 0, max_e, STEP_AXIS_HEIGHT, 0);
             switch(graph_mode){
             case DOTTED:
-                plot(x + STEP_AXIS_GAP_X
-            ,y,COLOR_RED);
+                plot(x + STEP_AXIS_GAP_X, y,COLOR_RED);
                 break;
             case LINE:
                 drawLine((x-1), old_y, x, y, COLOR_RED);
@@ -314,43 +297,33 @@ void plot_step(enum plot_type graph_plot, enum plot_mode graph_mode){
 
 // TODO: Fix Bode plot
 void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
-    // when the scale = 0 and pixel fraction = 0.5, w = 3ish
-    // when the scale = -1 and pixel fraction = 0.5 w = 0.3...
     double exp = -1.0; // 0.1 ... 1
 
     double w;
     double g[BODE_AXIS_WIDTH];
     double p[BODE_AXIS_WIDTH];
 
-    // perform analysis
     double max_g = 0., min_g = -20.;
 
-    double max_p = 0, min_p = -M_PI;
+    double max_p = 0, min_p = 0;
 
     int y, old_y, old_y2;
     old_y = 0;
     old_y2 = BODE_AXIS_END;
     for(;;){
         for (int x = 0; x< BODE_AXIS_WIDTH; x++){
-            
             w = s21_exp10(((double) x)/((double) BODE_AXIS_WIDTH) + exp);
 
             g[x] = calculate_bode_gain(graph_plot, w);
             p[x] = calculate_bode_phase(graph_plot, w);
         }
         
-
-        /*
         for (int i = 0; i<BODE_AXIS_WIDTH; i++){
-            max_g = g[i] > max_g ? g[i] : max_g;
-            min_g = g[i] < min_g ? g[i] : min_g;
-
-            max_p = p[i] > max_p ? p[i] : max_p;
             min_p = p[i] < min_p ? p[i] : min_p;
         }
-        */
+        min_p = (min_p<-90.0)?((min_p<-180)?-360:-180): -90;
 
-       Bdisp_AllClr_VRAM();
+        Bdisp_AllClr_VRAM();
         // draw vertical grid lines
         for (double x = 1.0 ; x<=10.0; x +=1.0){
             int scaled_x = (int)((double) BODE_AXIS_WIDTH * s21_log10(x) )+ BODE_AXIS_GAP_X;
@@ -360,18 +333,16 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         }
 
         // draw gain grid lines at 0dB, -3dB, -10dB and -20dB
-        double hor_lines [] = {0., -3., -10., -20.};
-        for (int i = 0; i<=3; i++){
-            int pixel_y = (int) mapd(hor_lines[i], min_g, max_g, (double) BODE_AXIS_HEIGHT, 0);
+        for (double h_g = min_g; h_g<max_g; h_g +=10){
+            int pixel_y = (int) mapd(h_g, min_g, max_g, (double) BODE_AXIS_HEIGHT, 0);
             for (int x = 0; x<BODE_AXIS_WIDTH; x++){
                 plot(x+BODE_AXIS_GAP_X, pixel_y, COLOR_LIGHTSLATEGRAY);
             }
         }
+        
 
-
-        // draw phase grid lines
-        double step_p = M_PI_4/2;
-        for (double grid_p = min_p ; grid_p<max_p; grid_p += step_p){
+        // draw phase horizontal lines
+        for (double grid_p = min_p ; grid_p<max_p; grid_p -= min_p/4.0){
             int scaled_y = mapd(grid_p, min_p, max_p, (double) BODE_AXIS_HEIGHT, (double) BODE_AXIS_END);
             for (int x = 0; x<BODE_AXIS_WIDTH; x++){
                 plot(x+BODE_AXIS_GAP_X, scaled_y, COLOR_LIGHTSLATEGRAY);
@@ -386,17 +357,26 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         for (int x = 0; x<BODE_AXIS_WIDTH; x++) {
             plot(x+BODE_AXIS_GAP_X, 0, COLOR_BLUE);
             plot(x+BODE_AXIS_GAP_X, BODE_AXIS_HEIGHT, COLOR_BLUE);
-            //plot(x, 3*LCD_HEIGHT_PX/4, COLOR_LIGHTSLATEGRAY);
             plot(x+BODE_AXIS_GAP_X, BODE_AXIS_END, COLOR_BLUE);
         }
 
         int char_x,char_y;
         char buffer[7] = {};
 
-        // display gain values
+        if (max_g>=-3.0 && min_g<=-3.0){
+            int pixel_y = (int) mapd(-3.0, min_g, max_g, (double) BODE_AXIS_HEIGHT, 0);
+            for (int x = 0; x<BODE_AXIS_WIDTH; x++){
+                plot(x+BODE_AXIS_GAP_X, pixel_y, COLOR_LIGHTSLATEGRAY);
+            }
+            memset(buffer, 0, 6);
+            _float_to_char(-3.0, buffer, 6);
+            char_x=0, char_y=0 ;
+            PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
+        }
+
         memset(buffer, 0, 6);
-        _float_to_char(-3.0, buffer, 6);
-        char_x=0, char_y=0 ;
+        _float_to_char(min_g + 10.0, buffer, 6);
+        char_x=0, char_y= (BODE_AXIS_HEIGHT-24)/2-MINI_HEIGHT ;
         PrintMiniMini(&char_x, &char_y, buffer, TEXT_MODE_NORMAL, TEXT_COLOR_BLACK, TEXT_MODE_NORMAL);
 
         memset(buffer, 0, 6);
@@ -428,7 +408,6 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
 
 
         // draw gain
-        // TODO: display in decibels
         for(int x = 0; x< BODE_AXIS_WIDTH; x++){
             y = (int) mapd(g[x], min_g, max_g,(double) BODE_AXIS_HEIGHT, 0);
             switch (graph_mode) {
@@ -465,16 +444,14 @@ void plot_bode(enum plot_type graph_plot, enum plot_mode graph_mode){
         if (key == KEY_CTRL_LEFT){
             exp--;
         }
-        /*
         if (key == KEY_CTRL_UP){
-            min_g += 20;
-            max_g += 20;
+            min_g +=20;
+            max_g +=20;
         }
         if (key == KEY_CTRL_DOWN){
             min_g -= 20;
             max_g -=20;
         }
-        */
     }
 }
 
@@ -543,15 +520,12 @@ int main(void){
     set_default_values();
     char buffer[256] = {}; int n;
 
-    // set cursor for writing text
-
     for(;;){
         // clear display
         Bdisp_AllClr_VRAM();
 
         // get option from user
         choice = menu(&geometry, 0, tab);
-
         switch(choice){
             case 1:
             {
