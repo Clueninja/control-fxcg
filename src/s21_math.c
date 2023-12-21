@@ -191,7 +191,7 @@ long double s21_asin(double x) {
 }
 
 long double s21_acos(double x) {
-  long double result = 1.0, eps = 1e-6;
+  long double result = 1.0, eps = 1e-3;
   if ((x > 1) || (x < -1)) {
     result = 0. / 0.;
   } else if (x == 1 || x == -1) {
@@ -199,10 +199,11 @@ long double s21_acos(double x) {
     if (x < 0) result = M_PI;
   } else {
     long double temporary_result = 0.1;
-    while (abs((double)temporary_result) > eps) {
-      temporary_result =
-          (s21_cos((double)result) - x) / s21_sin((double)result);
+    int count = 0;
+    while (abs((double)temporary_result) > eps && count < 20) {
+      temporary_result = (s21_cos((double)result) - x) / s21_sin((double)result);
       result += temporary_result;
+      count ++;
     }
   }
   return result;

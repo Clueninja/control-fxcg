@@ -150,6 +150,7 @@ double calculate_bode_gain(enum plot_type type, double w){
         double a=second.a, b=second.b, c=second.c;
         double w0 = 1.0/ s21_sqrt(a/c);
         double zeta = b/c/2.0 * w0;
+        // apply formula
         complex_t den;
         den.r = (1.0 - sqr(w/w0));
         den.i = (2.0 * zeta *w/w0);
@@ -239,7 +240,7 @@ double calculate_step_gain(enum plot_type type, double t){
                 return 1.0/c * (1.0 - (1 + w0*t) * s21_exp(-w0 * t));
             // zeta > 1
             double temp = s21_sqrt(sqr(zeta)- 1.0);
-            double atanh_temp = 1.0/2.0 * s21_log((1.0 + temp/zeta)/(1.0 - temp/zeta));
+            double atanh_temp = 0.5 * s21_log((1.0 + temp/zeta)/(1.0 - temp/zeta));
             return 1.0/c * (1.0 - s21_exp(- zeta * w0 *t)/ temp * (s21_exp(temp*w0*t + atanh_temp) - s21_exp(-temp*w0*t - atanh_temp))/2.0 );
         }
         case BODE:
